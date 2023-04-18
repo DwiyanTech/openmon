@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wazuh-cluster-key
+  namespace: default
+data:
+  key: NTQwMThiZmFhMTBkNGJiNGNmZjMwMzA4Y2I1MmY3NTQK # string "123a45bc67def891gh23i45jk67l8mn9" base64 encoded

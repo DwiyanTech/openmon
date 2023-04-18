@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch-master
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: es-service
+  serviceName: es-service
+  template:
+    metadata:
+      labels:
+        app: es-service
+      name: es-service
+    spec:
+      affinity:
+         nodeAffinity:
+           requiredDuringSchedulingIgnoredDuringExecution:
+             nodeSelectorTerms:
+             - matchExpressions:
+               - key: kubernetes.io/os
+                 operator: In
+                 values:
+                 - linux
+           preferredDuringSchedulingIgnoredDuringExecution:
+           - weight: 1
+             preference:
+               matchExpressions:
+               - key: logmonitor-label
+                 operator: In
+                 values:
+                 - backend
+      # Set the elasticsearch volume permissions so the elasticsearch user can use it
+      volumes:
+        - name: elasticsearch-conf
+          configMap:
+            name: elasticsearch-conf
+      initContainers:
+        - name: volume-mount-hack
+          image: busybox
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+          command:
+            - sh
+            - '-c'
+            - 'chown -R 1000:1000 /usr/share/elasticsearch/data/'
+          volumeMounts:
+            - name: elasticsearch-data
+              mountPath: /usr/share/elasticsearch/data/
+        - name: increase-the-vm-max-map-count
+          image: busybox
+          command:
+            - sysctl
+            - -w
+            - vm.max_map_count=262144
+          securityContext:
+            privileged: true
+      containers:
+        - name: elasticsearch
+          image: 'docker.elastic.co/elasticsearch/elasticsearch:7.17.3'
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1564Mi
+          env:
+            - name: ES_JAVA_OPTS
+              value: '-Xms1g -Xmx1g -Dlog4j2.formatMsgNoLookups=true'
+            - name: CLUSTER_NAME
+              value: elasticsearch-master
+            - name: NETWORK_HOST
+              value: "0.0.0.0"
+            - name: discovery.seed_hosts
+              value: 10.97.3.103
+            - name: cluster.initial_master_nodes
+              value: elasticsearch-master-0
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: DISCOVERY_SERVICE
+              value: elasticsearch-discovery
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          securityContext:
+            capabilities:
+              add: ["SYS_CHROOT"]
+          volumeMounts:
+            - name: elasticsearch-data
+              mountPath: /usr/share/elasticsearch/data/
+          ports:
+            - containerPort: 9200
+              name: es-mainport
+            - containerPort: 9300
+              name: es-workerport
+  volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+        namespace: default
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

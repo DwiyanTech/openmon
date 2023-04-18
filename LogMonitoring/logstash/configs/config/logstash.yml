@@ -1,0 +1,6 @@
+http.host: 0.0.0.0
+node.name: ${HOSTNAME}
+xpack.monitoring.elasticsearch.hosts: [ "http://10.104.10.60:9200" ]
+xpack.monitoring.enabled: false
+pipeline.ordered: false
+pipeline.workers: ${NUM_CPU}

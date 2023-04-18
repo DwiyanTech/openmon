@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+      name: kibana
+    spec:
+      affinity:
+         nodeAffinity:
+           requiredDuringSchedulingIgnoredDuringExecution:
+             nodeSelectorTerms:
+             - matchExpressions:
+               - key: kubernetes.io/os
+                 operator: In
+                 values:
+                 - linux
+           preferredDuringSchedulingIgnoredDuringExecution:
+           - weight: 1
+             preference:
+               matchExpressions:
+               - key: logmonitor-label
+                 operator: In
+                 values:
+                 - frontend
+      initContainers:
+      - name: fix-volume-permission
+        imagePullPolicy: IfNotPresent
+        image: busybox
+        command:
+        - sh
+        - -c
+        - mkdir -p /usr/share/kibana/data/wazuh/config && cat /tmp/wazuh.yml > /usr/share/kibana/data/wazuh/config/wazuh.yml && chown -R 1000:1000 /usr/share/kibana/data/wazuh
+        volumeMounts:
+        - name: kibana-wazuh-conf-mount
+          mountPath: /tmp/wazuh.yml
+          subPath: wazuh.yaml
+        - name: kibana-wazuh-conf
+          mountPath: /usr/share/kibana/data/wazuh
+        securityContext:
+          privileged: true
+      containers:
+        - name: kibana
+          image: 'lunatictech/wazuh-kibana:7.17.3'
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1564Mi
+          env:
+            - name: ELASTICSEARCH_URL
+              value: "http://es-service.default.svc.cluster.local:9200"
+            - name: WAZUH_API_URL
+              value: "https://wazuh.default.svc.cluster.local"
+            - name: API_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: wazuh-api-cred
+                  key: username
+            - name: API_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wazuh-api-cred
+                  key: password
+          securityContext:
+            privileged: False
+          volumeMounts:
+            - name: kibana-wazuh-conf
+              mountPath:  /usr/share/kibana/data/wazuh
+            - name: kibana-wazuh-conf-mount
+              mountPath: /usr/share/kibana/config/kibana.yml
+              subPath: kibana.yaml
+              readOnly: True
+          ports:
+            - containerPort: 5601
+              name: kibana-mainport
+      volumes:
+        - name: kibana-wazuh-conf-mount
+          configMap:
+            name: kibana-wazuh-conf
+        - name: kibana-wazuh-conf
+          emptyDir: {}

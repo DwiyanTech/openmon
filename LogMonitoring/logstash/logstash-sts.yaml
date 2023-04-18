@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: logstash
+  labels:
+    app: logstash
+spec:
+  selector:
+    matchLabels:
+      app: logstash
+  serviceName: logstash
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: logmonitor-label
+                operator: In
+                values:
+                - frontend
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app-label
+                  operator: In
+                  values:
+                  - logstash
+              topologyKey: kubernetes.io/hostname
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+        runAsGroup: 1000
+      initContainers:
+      - name: init-pipelines
+        imagePullPolicy: Always
+        image: busybox
+        command:
+        - sh
+        - -c
+        - tar -zxvf /opt/source-pipelines/logstash-pipelines.tar -C /opt/logstash-pipelines && cp /opt/source-config/* /opt/logstash-config 
+        volumeMounts:
+        - name: source-config
+          mountPath: /opt/source-config
+        - name: source-pipelines
+          mountPath: /opt/source-pipelines
+        - name: volume-config
+          mountPath: /opt/logstash-config
+        - name: volume-pipelines
+          mountPath: /opt/logstash-pipelines
+      containers:
+      - name: logstash
+        securityContext:
+          privileged: false
+          capabilities:
+            add:
+              - IPC_LOCK
+              - SYS_RESOURCE
+        image: docker.elastic.co/logstash/logstash:7.10.2
+        args: [ "/usr/share/logstash/bin/logstash", "--http.host", "0.0.0.0", "-l", "/var/log/logstash", "--config.reload.automatic" ]
+        imagePullPolicy: Always
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: "LS_JAVA_OPTS"
+          value: "-Xms2g -Xmx2g -Dlog4j2.formatMsgNoLookups=true"
+        - name: "LS_HEAP_SIZE"
+          value: "4096"
+        - name: xpack.monitoring.elasticsearch.hosts
+          value: "http://10.104.10.60:9200"
+        - name: xpack.monitoring.enabled
+          value: "false"
+        - name: NUM_CPU
+          valueFrom:
+            resourceFieldRef:
+              containerName: logstash
+              resource: limits.cpu
+        ports:
+        - containerPort: 5044
+          name: beats
+          protocol: TCP
+        volumeMounts:
+        - name: volume-config
+          mountPath: /usr/share/logstash/config
+        - name: volume-template
+          mountPath: /etc/logstash/index-template.d
+        - name: volume-pipelines
+          mountPath: /etc/logstash/pipelines
+        - name: logstash-uuid
+          mountPath: /usr/share/logstash/data/uuid
+          subPath: uuid
+        - name: logstash-storage
+          mountPath: /var/log/logstash
+        - name: logstash-storage
+          mountPath: /usr/share/logstash/data/queue
+      volumes:
+        - name: source-config
+          configMap:
+            name: logstash-config
+        - name: volume-config
+          emptyDir: {}
+        - name: volume-pipelines
+          emptyDir: {}
+        - name: volume-template
+          configMap:
+            name: logstash-template
+        - name: logstash-uuid
+          configMap:
+            name: logstash-uuid
+        - name: source-pipelines
+          configMap:
+            name: logstash-pipelines
+  volumeClaimTemplates:
+    - metadata:
+        name: logstash-storage
+        namespace: default
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 500Mi

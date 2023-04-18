@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: caldera-service
+  labels:
+    app: caldera-service
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: caldera-service
+  ports:
+  - name: caldera-webapp
+    port: 8888
+    protocol: TCP
+  - name: contact-port-tcp
+    port: 7010
+    protocol: TCP
+  - name: contact-port-udp
+    port: 7010
+    protocol: UDP
+  - name: dnsc2 
+    port: 8853
+    protocol: TCP
+  - name: ssh-tunneling
+    port: 8022
+    protocol: TCP
+  - name: fpt-c2
+    port: 2222
+    protocol: TCP

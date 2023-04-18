@@ -1,0 +1,11 @@
+kind: Installation
+apiVersion: operator.tigera.io/v1
+metadata:
+  name: default
+spec:
+  calicoNetwork:
+    bgp: Disabled
+    ipPools:
+    - cidr: 10.8.230.0/24
+      encapsulation: VXLAN
+

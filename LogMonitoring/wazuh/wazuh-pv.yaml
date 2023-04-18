@@ -1,0 +1,49 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv-wazuh
+spec:
+  storageClassName: local-storage
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/media/vmdata/k8sdata/pv-wazuh-manager/wazuh-manager" 
+  claimRef:
+    name: wazuh-storage
+    namespace: default
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k8smain.lunatic.local
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv-wazuh-config
+spec:
+  storageClassName: local-storage
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/media/vmdata/k8sdata/pv-wazuh-manager/wazuh-config-mount" 
+  claimRef:
+    name: wazuh-storage-wazuh-manager-0 
+    namespace: default
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - k8smain.lunatic.local   

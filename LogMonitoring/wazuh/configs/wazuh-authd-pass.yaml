@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wazuh-authd-pass
+  namespace: default
+data:
+  authd.pass: cGFzc3dvcmQ= # string "password" base64 encoded

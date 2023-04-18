@@ -1,0 +1,4 @@
+server.host: 0.0.0.0
+server.maxPayloadBytes: 5097152
+elasticsearch:
+  hosts: http://10.43.147.235:9200

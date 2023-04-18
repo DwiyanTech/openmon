@@ -1,0 +1,6 @@
+cluster.name: ${CLUSTER_NAME}
+node.name: ${NODE_NAME}
+network.host: ${NETWORK_HOST}
+discovery.seed_hosts: elasticsearch-master-0.es-service
+cluster.initial_master_nodes:
+  - elasticsearch-master-0

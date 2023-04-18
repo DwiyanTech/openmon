@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: caldera
+  labels:
+    app: caldera
+spec:
+  selector:
+    matchLabels:
+      app: caldera-service
+  serviceName: caldera-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: caldera-service
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: redteam-label
+                operator: In
+                values:
+                - frontend
+              # topologyKey: kubernetes.io/hostname
+      containers:
+      - name: caldera
+        image: lunatictech/caldera-alpine:4.1.0
+        command: [ "python3","/usr/src/app/server.py","--log", "DEBUG"]
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5044
+          name: caldera-webapp
+          protocol: TCP
+        - containerPort: 7010
+          name: contact-tcp
+          protocol: TCP
+        - containerPort: 7011
+          name: contact-udp
+          protocol: UDP
+        - containerPort: 7012
+          name: websocket
+          protocol: TCP
+        - containerPort: 8853
+          name: dnsc2
+          protocol: TCP
+        - containerPort: 8022
+          name: ssh-tunneling
+          protocol: TCP
+        - containerPort: 2222
+          name: fpt-c2
+          protocol: TCP
+        volumeMounts:
+        - name: caldera-config
+          mountPath: /usr/src/app/conf/local.yml
+          subPath: local.yml
+      volumes:
+        - name: caldera-config
+          configMap:
+            name: caldera-config
+  # volumeClaimTemplates:
+  #   - metadata:
+  #       name: caldera-storage
+  #       namespace: default
+  #     spec:
+  #       accessModes:
+  #         - ReadWriteOnce
+  #       storageClassName: local-storage
+  #       resources:
+  #         requests:
+  #           storage: 500Mi
